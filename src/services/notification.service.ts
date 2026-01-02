@@ -5,6 +5,7 @@ import { Injectable, signal } from '@angular/core';
 export class NotificationService {
   permissionStatus = signal<NotificationPermission | 'unsupported'>('default');
   private audio: HTMLAudioElement;
+  private celebrationAudio: HTMLAudioElement;
 
   constructor() {
     if (!('Notification' in window)) {
@@ -12,8 +13,10 @@ export class NotificationService {
     } else {
       this.permissionStatus.set(Notification.permission);
     }
-    // Subtle digital chime sound
+    // Subtle digital chime sound for regular alerts
     this.audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    // Distinct celebratory success chime for completion
+    this.celebrationAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3');
   }
 
   async requestPermission(): Promise<boolean> {
@@ -38,5 +41,10 @@ export class NotificationService {
   playSound() {
     this.audio.currentTime = 0;
     this.audio.play().catch(e => console.warn('Audio play failed:', e));
+  }
+
+  playCelebratorySound() {
+    this.celebrationAudio.currentTime = 0;
+    this.celebrationAudio.play().catch(e => console.warn('Celebration audio play failed:', e));
   }
 }

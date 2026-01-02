@@ -1,7 +1,7 @@
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
   <!-- Header -->
-  <header class="flex flex-col md:flex-row justify-between items-center mb-16 gap-6">
+  <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
     <div class="text-center md:text-left border-2 border-indigo-400/40 p-5 rounded-sm bg-indigo-950/10">
       <h1 class="text-xl sm:text-2xl font-bold tracking-normal text-white mb-1 uppercase">
         Countdown Timer Activities
@@ -23,10 +23,10 @@
       }
 
       <button 
-        (click)="showForm.set(!showForm())"
+        (click)="toggleForm()"
         class="flex items-center gap-3 bg-white text-slate-900 font-bold px-8 py-4 rounded-2xl hover:bg-indigo-50 transition-all shadow-xl shadow-white/5 active:scale-95"
       >
-        @if (showForm()) {
+        @if (showForm() && !editingTimerId()) {
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -41,15 +41,45 @@
     </div>
   </header>
 
+  <!-- View Mode Switcher -->
+  <div class="flex justify-center mb-10">
+    <div class="inline-flex p-1 bg-slate-900 border border-slate-800 rounded-2xl">
+      <button 
+        (click)="viewMode.set('active')"
+        class="px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
+        [class]="viewMode() === 'active' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Active ({{ timerService.activeCount() }})
+      </button>
+      <button 
+        (click)="viewMode.set('archived')"
+        class="px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
+        [class]="viewMode() === 'archived' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+        </svg>
+        Archived ({{ timerService.archivedCount() }})
+      </button>
+    </div>
+  </div>
+
   <main>
     @if (showForm()) {
       <div class="mb-12 max-w-xl mx-auto animate-in fade-in slide-in-from-top-4 duration-500">
-        <app-timer-form (onAdd)="handleAddTimer($event)"></app-timer-form>
+        <app-timer-form 
+          [timerToEdit]="editingTimer()" 
+          (onAdd)="handleSaveTimer($event)"
+          (onCancel)="closeForm()"
+        ></app-timer-form>
       </div>
     }
 
     <!-- Empty State -->
-    @if (timerService.timers().length === 0) {
+    @if (sortedTimers.length === 0) {
       <div class="flex flex-col items-center justify-center py-20 text-center space-y-6 animate-pulse">
         <div class="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -57,8 +87,16 @@
           </svg>
         </div>
         <div>
-          <h2 class="text-2xl font-bold text-white mb-2">No timers yet</h2>
-          <p class="text-slate-500 max-w-xs mx-auto">Click "New Timer" to start tracking your next big milestone or deadline.</p>
+          <h2 class="text-2xl font-bold text-white mb-2">
+            @if (viewMode() === 'active') { No active timers } @else { No archived timers }
+          </h2>
+          <p class="text-slate-500 max-w-xs mx-auto">
+            @if (viewMode() === 'active') {
+              Click "New Timer" to start tracking your next big milestone or deadline.
+            } @else {
+              Archived timers will appear here once you've completed and hidden them.
+            }
+          </p>
         </div>
       </div>
     }
@@ -66,10 +104,20 @@
     <!-- Timers Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       @for (timer of sortedTimers; track timer.id) {
-        <div class="animate-in fade-in zoom-in-95 duration-700">
+        <div 
+          class="animate-in fade-in zoom-in-95 duration-700 transition-all"
+          [class.opacity-50]="draggedTimerId() === timer.id"
+          draggable="true"
+          (dragstart)="onDragStart(timer)"
+          (dragover)="onDragOver($event)"
+          (drop)="onDrop(timer)"
+        >
           <app-timer-card 
             [timer]="timer" 
             (onDelete)="handleDelete($event)"
+            (onArchive)="handleArchive($event)"
+            (onUnarchive)="handleUnarchive($event)"
+            (onEdit)="handleEdit($event)"
           ></app-timer-card>
         </div>
       }
@@ -80,14 +128,12 @@
   @if (timerService.timers().length > 0) {
     <footer class="mt-20 flex flex-wrap justify-center gap-12 text-slate-500 border-t border-slate-800/50 pt-10">
       <div class="text-center">
-        <div class="text-2xl font-black text-slate-300">{{ timerService.timers().length }}</div>
+        <div class="text-2xl font-black text-slate-300">{{ timerService.activeCount() }}</div>
         <div class="text-[10px] uppercase font-bold tracking-widest">Active Counts</div>
       </div>
       <div class="text-center">
-        <div class="text-2xl font-black text-slate-300">
-          {{ timerService.timers().length }}
-        </div>
-        <div class="text-[10px] uppercase font-bold tracking-widest">Milestones</div>
+        <div class="text-2xl font-black text-slate-300">{{ timerService.archivedCount() }}</div>
+        <div class="text-[10px] uppercase font-bold tracking-widest">Archived</div>
       </div>
     </footer>
   }

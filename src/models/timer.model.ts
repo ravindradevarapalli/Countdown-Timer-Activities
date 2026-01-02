@@ -4,6 +4,7 @@ export type TimerCategory = 'Work' | 'Personal' | 'Health' | 'Travel' | 'Event' 
 export interface CountdownTimer {
   id: string;
   title: string;
+  description?: string;
   targetDate: string; // ISO string
   createdAt: string;
   category: TimerCategory;
@@ -11,6 +12,8 @@ export interface CountdownTimer {
   motivation?: string;
   isCompleted: boolean;
   notified?: boolean;
+  isArchived?: boolean;
+  order: number;
 }
 
 export interface TimeLeft {

@@ -11,6 +11,9 @@ export class TimerService {
   private timersSignal = signal<CountdownTimer[]>(this.loadFromStorage());
   public timers = this.timersSignal.asReadonly();
   
+  public activeCount = computed(() => this.timersSignal().filter(t => !t.isArchived).length);
+  public archivedCount = computed(() => this.timersSignal().filter(t => t.isArchived).length);
+
   private currentTime = signal<number>(Date.now());
 
   constructor() {
@@ -26,7 +29,9 @@ export class TimerService {
 
   private loadFromStorage(): CountdownTimer[] {
     const data = localStorage.getItem(this.STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    const timers: CountdownTimer[] = data ? JSON.parse(data) : [];
+    // Ensure all timers have an order property for backwards compatibility
+    return timers.map((t, i) => ({ ...t, order: t.order ?? i }));
   }
 
   private checkFinishedTimers() {
@@ -52,13 +57,16 @@ export class TimerService {
     }
   }
 
-  addTimer(timer: Omit<CountdownTimer, 'id' | 'createdAt' | 'isCompleted'>) {
+  addTimer(timer: Omit<CountdownTimer, 'id' | 'createdAt' | 'isCompleted' | 'isArchived' | 'order'>) {
+    const currentTimers = this.timersSignal();
     const newTimer: CountdownTimer = {
       ...timer,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       isCompleted: false,
-      notified: false
+      notified: false,
+      isArchived: false,
+      order: currentTimers.length
     };
     this.timersSignal.update(t => [...t, newTimer]);
   }
@@ -69,8 +77,39 @@ export class TimerService {
     );
   }
 
+  reorderTimers(orderedTimers: CountdownTimer[]) {
+    // We update the 'order' property for all timers in the signal
+    // This assumes 'orderedTimers' is the full list or a correctly filtered subset
+    this.timersSignal.update(current => {
+      const updated = [...current];
+      orderedTimers.forEach((timer, index) => {
+        const found = updated.find(t => t.id === timer.id);
+        if (found) {
+          found.order = index;
+        }
+      });
+      return updated.sort((a, b) => a.order - b.order);
+    });
+  }
+
+  archiveTimer(id: string) {
+    this.timersSignal.update(timers =>
+      timers.map(t => t.id === id ? { ...t, isArchived: true } : t)
+    );
+  }
+
+  unarchiveTimer(id: string) {
+    this.timersSignal.update(timers =>
+      timers.map(t => t.id === id ? { ...t, isArchived: false } : t)
+    );
+  }
+
   deleteTimer(id: string) {
-    this.timersSignal.update(t => t.filter(timer => timer.id !== id));
+    this.timersSignal.update(current => {
+      const filtered = current.filter(timer => timer.id !== id);
+      // Re-sequence to avoid gaps
+      return filtered.map((t, i) => ({ ...t, order: i }));
+    });
   }
 
   updateMotivation(id: string, motivation: string) {
