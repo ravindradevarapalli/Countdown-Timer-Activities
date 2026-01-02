@@ -196,7 +196,7 @@ import { GeminiService } from '../services/gemini.service';
         </div>
 
         <!-- Countdown Display -->
-        <div class="grid grid-cols-4 gap-2 mb-4 relative z-10" [class.opacity-40]="status() === 'completed'">
+        <div class="grid grid-cols-4 gap-2 mb-2 relative z-10" [class.opacity-40]="status() === 'completed'">
           @let timeLeft = timerInfo();
           
           <div class="text-center">
@@ -215,6 +215,19 @@ import { GeminiService } from '../services/gemini.service';
             <div class="text-2xl font-black text-white leading-none">{{ timeLeft.seconds }}</div>
             <div class="text-[9px] uppercase tracking-tighter text-slate-500 font-bold">Secs</div>
           </div>
+        </div>
+
+        <!-- Date Range Section (New) -->
+        <div class="flex justify-between items-center mb-6 px-1 relative z-10" [class.opacity-40]="status() === 'completed'">
+           <div class="flex flex-col">
+             <span class="text-[8px] font-black uppercase text-slate-600 tracking-widest">Since</span>
+             <span class="text-[10px] text-slate-500 font-mono">{{ formatDateTime(timer().createdAt) }}</span>
+           </div>
+           <div class="flex-1 border-b border-dashed border-slate-800 mx-3 mb-1"></div>
+           <div class="flex flex-col text-right">
+             <span class="text-[8px] font-black uppercase text-slate-600 tracking-widest">Until</span>
+             <span class="text-[10px] text-slate-400 font-mono font-bold">{{ formatDateTime(timer().targetDate) }}</span>
+           </div>
         </div>
 
         <!-- Progress Bar Section -->
@@ -308,10 +321,10 @@ import { GeminiService } from '../services/gemini.service';
         <div class="mt-4 pt-4 border-t border-slate-700/50 flex justify-between items-center z-10">
           <div class="flex flex-col">
             <span class="text-[9px] text-slate-600 uppercase font-black tracking-widest">
-              {{ status() === 'completed' ? 'COMPLETED ON' : 'TARGET DEADLINE' }}
+              Status Summary
             </span>
             <span class="text-[10px] text-slate-400 font-medium">
-              {{ formatDateTime(timer().targetDate) }}
+              {{ status() === 'completed' ? 'Finished successfully' : (status() === 'warning' ? 'Closing in soon' : 'On track') }}
             </span>
           </div>
           @if (status() === 'completed') {
